@@ -1,7 +1,6 @@
 package fiberopenapi
 
 import (
-	"fmt"
 	stdpath "path"
 
 	"github.com/gofiber/fiber/v2"
@@ -101,7 +100,6 @@ func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
 
 	r.Get(cfg.DocsPath, handler.Docs)
 	r.Get(openapiPath, handler.OpenAPIYaml)
-	fmt.Printf("OpenAPI documentation available at: %s\n", openapiPath)
 
 	return rr
 }
