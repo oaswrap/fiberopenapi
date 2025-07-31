@@ -361,7 +361,10 @@ func TestRouterWriteSchemaTo(t *testing.T) {
 
 	tempFile, err := os.CreateTemp("", "openapi-schema-*.yaml")
 	require.NoError(t, err, "failed to create temporary file for OpenAPI schema")
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		err := os.Remove(tempFile.Name())
+		require.NoError(t, err, "failed to remove temporary file")
+	}()
 
 	err = r.WriteSchemaTo(tempFile.Name())
 	require.NoError(t, err, "failed to write OpenAPI schema to file")
