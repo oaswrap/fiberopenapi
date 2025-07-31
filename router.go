@@ -1,14 +1,14 @@
 package fiberopenapi
 
 import (
-	"fmt"
 	stdpath "path"
-	"sync"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/oaswrap/fiberopenapi/internal/errors"
+	"github.com/oaswrap/fiberopenapi/internal/constant"
+	"github.com/oaswrap/fiberopenapi/internal/handler"
 	"github.com/oaswrap/fiberopenapi/internal/util"
 	"github.com/oaswrap/spec"
+	"github.com/oaswrap/spec/openapi"
 	"github.com/oaswrap/spec/option"
 )
 
@@ -50,7 +50,7 @@ type Router interface {
 
 	// With applies options to the router.
 	// This allows you to configure tags, security, and visibility for the routes.
-	With(opts ...option.RouteOption) Router
+	With(opts ...option.GroupOption) Router
 
 	// Validate checks for errors at OpenAPI router initialization.
 	//
@@ -66,55 +66,45 @@ type Router interface {
 }
 
 type router struct {
-	prefix     string
-	router     fiber.Router
-	subRouters []*router
-	routes     []*route
-	core       *spec.Generator
-
-	errors *errors.MultiError
-	logger spec.Logger
-
-	tags     []string
-	security []option.RouteSecurityConfig
-	hide     bool
-
-	buildOnce  sync.Once
-	schemaOnce sync.Once
-	schema     []byte
+	fiberRouter fiber.Router
+	specRouter  spec.Router
+	generator   *spec.Generator
 }
 
 func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
-	c := newConfig(opts...)
+	defaultOpts := []option.OpenAPIOption{
+		option.WithTitle(constant.DefaultTitle),
+		option.WithDescription(constant.DefaultDescription),
+		option.WithVersion(constant.DefaultVersion),
+		option.WithSwaggerConfig(openapi.SwaggerConfig{}),
+	}
+	opts = append(defaultOpts, opts...)
+	generator := spec.NewGenerator(opts...)
+	cfg := generator.Config()
 
 	rr := &router{
-		prefix: "/",
-		router: r,
-		errors: &errors.MultiError{},
-		logger: c.Logger,
+		fiberRouter: r,
+		specRouter:  generator,
+		generator:   generator,
 	}
+
 	// If OpenAPI is disabled, return the router without any OpenAPI functionality.
 	// This allows the application to run without OpenAPI if desired.
-	if c.DisableOpenAPI {
+	if cfg.DisableOpenAPI {
 		return rr
 	}
 
-	generator, err := spec.NewGenerator(c)
-	if err != nil {
-		rr.errors.Add(err)
-		return rr
-	}
+	handler := handler.NewOpenAPIHandler(cfg, generator)
+	openapiPath := stdpath.Join(cfg.DocsPath, constant.OpenAPIFileName)
 
-	rr.core = generator
-	r.Get(c.DocsPath, docsHandler(c))
-	openapiPath := stdpath.Join(c.DocsPath, openapiFileName)
-	r.Get(openapiPath, openAPIHandler(rr))
+	r.Get(cfg.DocsPath, handler.Docs)
+	r.Get(openapiPath, handler.OpenAPIYaml)
 
 	return rr
 }
 
 func (r *router) Use(args ...any) Router {
-	r.router.Use(args...)
+	r.fiberRouter.Use(args...)
 	return r
 }
 
@@ -155,178 +145,62 @@ func (r *router) Trace(path string, handler ...fiber.Handler) Route {
 }
 
 func (r *router) Add(method, path string, handler ...fiber.Handler) Route {
-	rr := r.router.Add(method, path, handler...)
+	fr := r.fiberRouter.Add(method, path, handler...)
+	sr := r.specRouter.Add(method, util.ConvertPath(path))
 
 	route := &route{
-		rr:       r,
-		router:   rr,
-		tags:     r.tags,
-		security: r.security,
-		hide:     r.hide,
+		fr: fr,
+		sr: sr,
 	}
-	if r.core != nil {
-		cleanpath := r.cleanPath(path)
-		cleanpath = util.ConvertPath(cleanpath)
-
-		operation, err := r.core.NewOperationContext(method, cleanpath)
-		if err != nil {
-			r.errors.Add(err)
-		}
-		route.operation = operation
-	}
-	r.routes = append(r.routes, route)
 
 	return route
 }
 
 func (r *router) Static(prefix, root string, config ...fiber.Static) Router {
-	r.router.Static(prefix, root, config...)
+	r.fiberRouter.Static(prefix, root, config...)
 	return r
 }
 
 func (r *router) Group(prefix string, handlers ...fiber.Handler) Router {
-	rr := r.router.Group(prefix, handlers...)
+	rr := r.fiberRouter.Group(prefix, handlers...)
+	sr := r.specRouter.Group(prefix)
 
-	subRouter := &router{
-		router:   rr,
-		core:     r.core,
-		prefix:   r.cleanPath(prefix),
-		logger:   r.logger,
-		errors:   r.errors,
-		tags:     r.tags,
-		security: r.security,
-		hide:     r.hide,
+	return &router{
+		fiberRouter: rr,
+		specRouter:  sr,
 	}
-	r.subRouters = append(r.subRouters, subRouter)
-
-	return subRouter
 }
 
 func (r *router) Route(prefix string, fn func(router Router)) Router {
-	fr := r.router.Group(prefix) // or Route, same
+	fr := r.fiberRouter.Group(prefix)
+	sr := r.specRouter.Group(prefix)
 
 	subRouter := &router{
-		router:   fr,
-		core:     r.core,
-		prefix:   r.cleanPath(prefix),
-		logger:   r.logger,
-		errors:   r.errors,
-		tags:     r.tags,
-		security: r.security,
-		hide:     r.hide,
+		fiberRouter: fr,
+		specRouter:  sr,
 	}
 
 	fn(subRouter)
 
-	r.subRouters = append(r.subRouters, subRouter)
-
 	return subRouter
 }
 
-func (r *router) With(opts ...option.RouteOption) Router {
-	cfg := &option.RouteConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if len(cfg.Tags) > 0 {
-		r.logger.Printf("Adding tags to router: %v for path: %s", cfg.Tags, r.prefix)
-		r.tags = append(r.tags, cfg.Tags...)
-	}
-	if len(cfg.Security) > 0 {
-		r.logger.Printf("Adding security to router: %v for path: %s", cfg.Security, r.prefix)
-		r.security = append(r.security, cfg.Security...)
-	}
-	if cfg.Hide && !r.hide {
-		r.logger.Printf("Hiding router for path: %s", r.prefix)
-		r.hide = true
-	}
+func (r *router) With(opts ...option.GroupOption) Router {
+	r.specRouter.Use(opts...)
 	return r
 }
 
 func (r *router) Validate() error {
-	r.addOperations()
-	if r.errors.HasErrors() {
-		return r.errors
+	if err := r.generator.Validate(); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (r *router) GenerateOpenAPISchema(formats ...string) ([]byte, error) {
-	if r.core == nil {
-		return nil, fmt.Errorf("OpenAPI is disabled, cannot generate schema")
-	}
-	r.addOperations()
-	if r.errors.HasErrors() {
-		return nil, r.errors
-	}
-	return r.core.GenerateSchema(formats...)
+	return r.generator.GenerateSchema(formats...)
 }
 
 func (r *router) WriteSchemaTo(path string) error {
-	if r.core == nil {
-		return fmt.Errorf("OpenAPI is disabled, cannot write schema")
-	}
-	r.addOperations()
-	if r.errors.HasErrors() {
-		return r.errors
-	}
-	return r.core.WriteSchemaTo(path)
-}
-
-// addOperations builds the OpenAPI operations for the router and its sub-routers.
-// This method is called only once to avoid redundant operations.
-func (r *router) addOperations() {
-	// Ensure that operations are built only once.
-	r.buildOnce.Do(func() {
-		for _, operation := range r.build() {
-			if operation == nil {
-				continue
-			}
-
-			r.logger.Printf("Adding operation for path: %s with method: %s", operation.PathPattern(), operation.Method())
-			if err := r.core.AddOperation(operation); err != nil {
-				r.errors.Add(err)
-			}
-		}
-	})
-}
-
-// build constructs the OpenAPI operations for the router and its sub-routers.
-func (r *router) build() []spec.OperationContext {
-	var operations []spec.OperationContext
-
-	for _, route := range r.routes {
-		if route.operation == nil || route.hide || r.hide {
-			continue
-		}
-
-		path := route.operation.Method() + " " + route.operation.PathPattern()
-
-		// Add tags from the route to the operation
-		tags := append(r.tags, route.tags...)
-		if len(tags) > 0 {
-			r.logger.Printf("Adding tags: %v for path: %s", tags, path)
-			route.operation.SetTags(tags...)
-		}
-
-		// Add security schemes from the route to the operation
-		securities := append(r.security, route.security...)
-		for _, sec := range securities {
-			r.logger.Printf("Adding security scheme: %s with scopes: %v for path: %s", sec.Name, sec.Scopes, path)
-			route.operation.AddSecurity(sec.Name, sec.Scopes...)
-		}
-
-		operations = append(operations, route.operation)
-	}
-
-	// Recursively build operations for sub-routers
-	for _, subRouter := range r.subRouters {
-		operations = append(operations, subRouter.build()...)
-	}
-
-	return operations
-}
-
-func (r *router) cleanPath(paths ...string) string {
-	return stdpath.Clean(stdpath.Join(append([]string{r.prefix}, paths...)...))
+	return r.generator.WriteSchemaTo(path)
 }

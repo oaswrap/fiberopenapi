@@ -1,11 +1,11 @@
 module github.com/oaswrap/fiberopenapi/examples/basic
 
-go 1.21
+go 1.24.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/oaswrap/fiberopenapi v0.0.0-00010101000000-000000000000
-	github.com/oaswrap/spec v0.1.1-0.20250730020249-04df2a80ad0b
+	github.com/oaswrap/fiberopenapi v0.0.0
+	github.com/oaswrap/spec v0.1.3
 )
 
 require (

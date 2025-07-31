@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  description: This is a test API for auth_login
-  title: Test API auth_login
+  description: This is a test API for Generic Response
+  title: Test API Generic Response
   version: 1.0.0
 paths:
   /auth/login:

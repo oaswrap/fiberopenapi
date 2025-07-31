@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/oaswrap/fiberopenapi"
-	"github.com/oaswrap/spec"
+	"github.com/oaswrap/spec/openapi"
 	"github.com/oaswrap/spec/option"
 )
 
@@ -20,8 +20,8 @@ func main() {
 		option.WithDocsPath("/docs"),
 		option.WithServer("https://petstore3.swagger.io", option.ServerDescription("Pet Store Server")),
 		option.WithSecurity("petstore_auth", option.SecurityOAuth2(
-			spec.OAuthFlows{
-				Implicit: &spec.OAuthFlowsDefsImplicit{
+			openapi.OAuthFlows{
+				Implicit: &openapi.OAuthFlowsDefsImplicit{
 					AuthorizationURL: "https://petstore3.swagger.io/oauth/authorize",
 					Scopes: map[string]string{
 						"write:pets": "modify pets in your account",
@@ -80,7 +80,7 @@ func main() {
 			option.Request(new(Pet)),
 			option.Response(200, new(Pet)),
 		)
-	}).With(option.RouteTags("pet"), option.RouteSecurity("petstore_auth", "write:pets", "read:pets"))
+	}).With(option.GroupTags("pet"), option.GroupSecurity("petstore_auth", "write:pets", "read:pets"))
 
 	// Validate the OpenAPI configuration
 	if err := r.Validate(); err != nil {

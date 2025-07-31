@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  description: This is a test API for auth_profile
-  title: Test API auth_profile
+  description: This is a test API for Custom Type Mapping
+  title: Test API Custom Type Mapping
   version: 1.0.0
 paths:
   /auth/me:
@@ -58,9 +58,7 @@ components:
           type: string
         email_verified_at:
           format: date-time
-          type:
-          - "null"
-          - string
+          type: string
         full_name:
           type: string
         id:
