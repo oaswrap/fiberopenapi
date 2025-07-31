@@ -76,6 +76,7 @@ func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
 		option.WithTitle(constant.DefaultTitle),
 		option.WithDescription(constant.DefaultDescription),
 		option.WithVersion(constant.DefaultVersion),
+		option.WithDocsPath(constant.DefaultDocsPath),
 		option.WithSwaggerConfig(openapi.SwaggerConfig{}),
 	}
 	opts = append(defaultOpts, opts...)
@@ -133,7 +134,9 @@ func (r *router) Delete(path string, handler ...fiber.Handler) Route {
 }
 
 func (r *router) Connect(path string, handler ...fiber.Handler) Route {
-	return r.Add(fiber.MethodConnect, path, handler...)
+	fr := r.fiberRouter.Connect(path, handler...)
+
+	return &route{fr: fr}
 }
 
 func (r *router) Options(path string, handler ...fiber.Handler) Route {
