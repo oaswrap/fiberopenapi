@@ -28,6 +28,9 @@ func (r *route) Name(name string) Route {
 
 // With applies the given options to the route.
 func (r *route) With(opts ...option.OperationOption) Route {
+	if r.sr == nil {
+		return r
+	}
 	r.sr.With(opts...)
 
 	return r

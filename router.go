@@ -1,6 +1,7 @@
 package fiberopenapi
 
 import (
+	"fmt"
 	stdpath "path"
 
 	"github.com/gofiber/fiber/v2"
@@ -76,6 +77,7 @@ func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
 		option.WithTitle(constant.DefaultTitle),
 		option.WithDescription(constant.DefaultDescription),
 		option.WithVersion(constant.DefaultVersion),
+		option.WithDocsPath(constant.DefaultDocsPath),
 		option.WithSwaggerConfig(openapi.SwaggerConfig{}),
 	}
 	opts = append(defaultOpts, opts...)
@@ -99,6 +101,7 @@ func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
 
 	r.Get(cfg.DocsPath, handler.Docs)
 	r.Get(openapiPath, handler.OpenAPIYaml)
+	fmt.Printf("OpenAPI documentation available at: %s\n", openapiPath)
 
 	return rr
 }
@@ -133,7 +136,9 @@ func (r *router) Delete(path string, handler ...fiber.Handler) Route {
 }
 
 func (r *router) Connect(path string, handler ...fiber.Handler) Route {
-	return r.Add(fiber.MethodConnect, path, handler...)
+	fr := r.fiberRouter.Connect(path, handler...)
+
+	return &route{fr: fr}
 }
 
 func (r *router) Options(path string, handler ...fiber.Handler) Route {
