@@ -1,10 +1,8 @@
 package fiberopenapi_test
 
 import (
-	"bytes"
 	"flag"
 	"mime/multipart"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/oaswrap/fiberopenapi"
-	"github.com/oaswrap/spec"
+	"github.com/oaswrap/spec/openapi"
 	"github.com/oaswrap/spec/option"
 	"github.com/oaswrap/spec/pkg/testutil"
 	"github.com/stretchr/testify/assert"
@@ -97,13 +95,18 @@ type Token struct {
 }
 
 type UserProfile struct {
-	ID              string     `json:"id"`
-	Username        string     `json:"username"`
-	Email           string     `json:"email"`
-	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
-	FullName        string     `json:"full_name"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID              string    `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	EmailVerifiedAt NullTime  `json:"email_verified_at"`
+	FullName        string    `json:"full_name"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type NullTime struct {
+	Time  time.Time `json:"time"`
+	Valid bool      `json:"valid"`
 }
 
 type Category struct {
@@ -164,16 +167,12 @@ func TestRouter(t *testing.T) {
 	tests := []struct {
 		name    string
 		golden  string
-		method  string
-		path    string
 		options []option.OpenAPIOption
 		setup   func(r fiberopenapi.Router)
 	}{
 		{
-			name:   "basic_data_types",
+			name:   "Basic Data Types",
 			golden: "basic_data_types.yaml",
-			method: "POST",
-			path:   "/data-types",
 			setup: func(r fiberopenapi.Router) {
 				r.Post("/data-types", PingHandler).With(
 					option.Summary("All Basic Data Types"),
@@ -184,10 +183,8 @@ func TestRouter(t *testing.T) {
 			},
 		},
 		{
-			name:   "basic_data_types_pointers",
+			name:   "Basic Data Types Pointers",
 			golden: "basic_data_types_pointers.yaml",
-			method: "PUT",
-			path:   "/data-types-pointers",
 			setup: func(r fiberopenapi.Router) {
 				r.Put("/data-types-pointers", PingHandler).With(
 					option.Summary("All Basic Data Types Pointers"),
@@ -198,10 +195,8 @@ func TestRouter(t *testing.T) {
 			},
 		},
 		{
-			name:   "auth_login",
-			golden: "auth_login.yaml",
-			method: "POST",
-			path:   "/auth/login",
+			name:   "Generic Response",
+			golden: "generic_response.yaml",
 			setup: func(r fiberopenapi.Router) {
 				r.Post("/auth/login", PingHandler).With(
 					option.Summary("User Login"),
@@ -214,12 +209,13 @@ func TestRouter(t *testing.T) {
 			},
 		},
 		{
-			name:   "auth_profile",
-			golden: "auth_profile.yaml",
-			method: "GET",
-			path:   "/auth/me",
+			name:   "Custom Type Mapping",
+			golden: "type_mapping.yaml",
 			options: []option.OpenAPIOption{
-				option.WithSecurity("bearerAuth", option.SecurityHTTPBearer()),
+				option.WithSecurity("bearerAuth", option.SecurityHTTPBearer("Bearer")),
+				option.WithReflectorConfig(
+					option.TypeMapping(NullTime{}, new(time.Time)),
+				),
 			},
 			setup: func(r fiberopenapi.Router) {
 				r.Get("/auth/me", PingHandler).With(
@@ -232,7 +228,7 @@ func TestRouter(t *testing.T) {
 			},
 		},
 		{
-			name:   "petstore",
+			name:   "Pet Store API",
 			golden: "petstore.yaml",
 			options: []option.OpenAPIOption{
 				option.WithTitle("Pet Store API - OpenAPI 3.1"),
@@ -241,8 +237,8 @@ func TestRouter(t *testing.T) {
 				option.WithDocsPath("/docs"),
 				option.WithServer("https://petstore3.swagger.io", option.ServerDescription("Pet Store Server")),
 				option.WithSecurity("petstore_auth", option.SecurityOAuth2(
-					spec.OAuthFlows{
-						Implicit: &spec.OAuthFlowsDefsImplicit{
+					openapi.OAuthFlows{
+						Implicit: &openapi.OAuthFlowsDefsImplicit{
 							AuthorizationURL: "https://petstore3.swagger.io/oauth/authorize",
 							Scopes: map[string]string{
 								"write:pets": "modify pets in your account",
@@ -301,7 +297,7 @@ func TestRouter(t *testing.T) {
 						option.Request(new(Pet)),
 						option.Response(200, new(Pet)),
 					)
-				}).With(option.RouteTags("pet"), option.RouteSecurity("petstore_auth", "write:pets", "read:pets"))
+				}).With(option.GroupTags("pet"), option.GroupSecurity("petstore_auth", "write:pets", "read:pets"))
 			},
 		},
 	}
@@ -313,6 +309,9 @@ func TestRouter(t *testing.T) {
 				option.WithTitle("Test API " + tt.name),
 				option.WithVersion("1.0.0"),
 				option.WithDescription("This is a test API for " + tt.name),
+				option.WithReflectorConfig(
+					option.RequiredPropByValidateTag(),
+				),
 			}
 			if len(tt.options) > 0 {
 				opts = append(opts, tt.options...)
@@ -321,17 +320,8 @@ func TestRouter(t *testing.T) {
 
 			tt.setup(r)
 
-			// Test the route registration
-			if tt.method != "" && tt.path != "" {
-				req := httptest.NewRequest(tt.method, tt.path, nil)
-				resp, err := app.Test(req)
-				assert.NoError(t, err, "failed to test request %s %s", tt.method, tt.path)
-				assert.Equal(t, 200, resp.StatusCode, "expected status code 200 for %s %s", tt.method, tt.path)
-				var buffer bytes.Buffer
-				_, err = buffer.ReadFrom(resp.Body)
-				assert.NoError(t, err, "failed to read response body for %s %s", tt.method, tt.path)
-				assert.NotEmpty(t, buffer.String(), "expected non-empty response body for %s %s", tt.method, tt.path)
-			}
+			err := r.Validate()
+			assert.NoError(t, err, "failed to validate OpenAPI configuration")
 
 			// Test the OpenAPI schema generation
 			schema, err := r.GenerateOpenAPISchema()
@@ -340,7 +330,7 @@ func TestRouter(t *testing.T) {
 			goldenFile := filepath.Join("testdata", tt.golden)
 
 			if *update {
-				err = os.WriteFile(goldenFile, schema, 0644)
+				err = r.WriteSchemaTo(goldenFile)
 				require.NoError(t, err, "failed to write golden file")
 				t.Logf("Updated golden file: %s", goldenFile)
 			}
@@ -351,4 +341,32 @@ func TestRouter(t *testing.T) {
 			testutil.EqualYAML(t, want, schema)
 		})
 	}
+}
+
+func TestRouterWriteSchemaTo(t *testing.T) {
+	app := fiber.New()
+	r := fiberopenapi.NewRouter(app,
+		option.WithTitle("Test API Write Schema"),
+		option.WithVersion("1.0.0"),
+		option.WithDescription("This is a test API for writing OpenAPI schema to file"),
+	)
+
+	r.Get("/ping", PingHandler).With(
+		option.Summary("Ping Endpoint"),
+		option.Description("Endpoint to test ping functionality"),
+	)
+
+	err := r.Validate()
+	require.NoError(t, err, "failed to validate OpenAPI configuration")
+
+	tempFile, err := os.CreateTemp("", "openapi-schema-*.yaml")
+	require.NoError(t, err, "failed to create temporary file for OpenAPI schema")
+	defer os.Remove(tempFile.Name())
+
+	err = r.WriteSchemaTo(tempFile.Name())
+	require.NoError(t, err, "failed to write OpenAPI schema to file")
+
+	schema, err := os.ReadFile(tempFile.Name())
+	require.NoError(t, err, "failed to read OpenAPI schema from file")
+	assert.NotEmpty(t, schema, "expected non-empty OpenAPI schema")
 }

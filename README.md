@@ -110,6 +110,8 @@ func main() {
 }
 ```
 
+It will generate an OpenAPI spec for the defined routes
+
 For more examples, check out the [examples directory](https://github.com/oaswrap/fiberopenapi/tree/main/examples).
 
 **This example demonstrates:**  

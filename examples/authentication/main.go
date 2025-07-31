@@ -19,7 +19,10 @@ func main() {
 		option.WithDescription("This is a sample API"),
 		option.WithDocsPath("/docs"),
 		option.WithServer("http://localhost:3000", option.ServerDescription("Local Server")),
-		option.WithSecurity("bearerAuth", option.SecurityHTTPBearer()),
+		option.WithSecurity("bearerAuth", option.SecurityHTTPBearer("Bearer")),
+		option.WithReflectorConfig(
+			option.RequiredPropByValidateTag(),
+		),
 		option.WithDebug(true),
 	)
 
@@ -44,7 +47,6 @@ func main() {
 			option.Response(422, new(ValidationResponse)),
 		)
 		r.Post("/refresh-token", dummyHandler).With(
-			option.Hide(),
 			option.Summary("Refresh Access Token"),
 			option.Description("Endpoint to refresh access token using refresh token"),
 			option.Request(new(RefreshTokenRequest)),
@@ -53,15 +55,22 @@ func main() {
 			option.Response(401, new(ErrorResponse)),
 			option.Response(422, new(ValidationResponse)),
 		)
-		r.Get("/me", dummyHandler).With(
+		auth := r.Group("/").With(option.GroupSecurity("bearerAuth"))
+		auth.Get("/me", dummyHandler).With(
 			option.Summary("Get User Profile"),
 			option.Description("Endpoint to get the authenticated user's profile"),
-			option.Security("bearerAuth"),
+			option.Tags("Profile"),
 			option.Response(200, new(Response[User])),
 			option.Response(401, new(ErrorResponse)),
 		)
+		auth.Get("/logout", dummyHandler).With(
+			option.Summary("User Logout"),
+			option.Description("Endpoint for user logout"),
+			option.Response(200, new(MessageResponse)),
+			option.Response(401, new(ErrorResponse)),
+		)
 	}).With(
-		option.RouteTags("Authentication"),
+		option.GroupTags("Authentication"),
 	)
 
 	v1.Route("/profile", func(r fiberopenapi.Router) {
@@ -90,8 +99,8 @@ func main() {
 			option.Response(422, new(ValidationResponse)),
 		)
 	}).With(
-		option.RouteTags("Profile"),
-		option.RouteSecurity("bearerAuth"),
+		option.GroupTags("Profile"),
+		option.GroupSecurity("bearerAuth"),
 	)
 
 	// Validate the OpenAPI configuration

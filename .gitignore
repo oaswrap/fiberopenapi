@@ -19,7 +19,7 @@ profile.cov
 junit.xml
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
 
 # Go workspace file
 go.work

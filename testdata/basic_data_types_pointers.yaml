@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  description: This is a test API for basic_data_types_pointers
-  title: Test API basic_data_types_pointers
+  description: This is a test API for Basic Data Types Pointers
+  title: Test API Basic Data Types Pointers
   version: 1.0.0
 paths:
   /data-types-pointers:

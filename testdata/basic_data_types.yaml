@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  description: This is a test API for basic_data_types
-  title: Test API basic_data_types
+  description: This is a test API for Basic Data Types
+  title: Test API Basic Data Types
   version: 1.0.0
 paths:
   /data-types:

@@ -4,9 +4,8 @@ go 1.21
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/oaswrap/spec v0.1.1
+	github.com/oaswrap/spec v0.1.3
 	github.com/stretchr/testify v1.10.0
-	github.com/swaggest/openapi-go v0.2.59
 	github.com/swaggest/swgui v1.8.4
 )
 
@@ -22,6 +21,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/swaggest/jsonschema-go v0.3.78 // indirect
+	github.com/swaggest/openapi-go v0.2.59 // indirect
 	github.com/swaggest/refl v1.4.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
