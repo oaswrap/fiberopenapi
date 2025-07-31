@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/oaswrap/fiberopenapi v0.0.0-00010101000000-000000000000
+	github.com/oaswrap/fiberopenapi v0.0.0
 	github.com/oaswrap/spec v0.1.3
 )
 

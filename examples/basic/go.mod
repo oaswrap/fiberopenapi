@@ -1,6 +1,6 @@
-module github.com/oaswrap/fiberopenapi/examples/petstore
+module github.com/oaswrap/fiberopenapi/examples/basic
 
-go 1.21
+go 1.24.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
