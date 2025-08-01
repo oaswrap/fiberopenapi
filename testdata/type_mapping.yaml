@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   description: This is a test API for Custom Type Mapping
   title: Test API Custom Type Mapping
@@ -28,16 +28,13 @@ components:
     FiberopenapiTestErrorResponse:
       properties:
         detail:
-          examples:
-          - Invalid input provided
+          example: Invalid input provided
           type: string
         status:
-          examples:
-          - 400
+          example: 400
           type: integer
         title:
-          examples:
-          - Bad Request
+          example: Bad Request
           type: string
       type: object
     FiberopenapiTestResponseGithubComOaswrapFiberopenapiTestUserProfile:
@@ -45,8 +42,7 @@ components:
         data:
           $ref: '#/components/schemas/FiberopenapiTestUserProfile'
         status:
-          examples:
-          - 200
+          example: 200
           type: integer
       type: object
     FiberopenapiTestUserProfile:

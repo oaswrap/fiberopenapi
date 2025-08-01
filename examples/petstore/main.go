@@ -1,106 +1,93 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/oaswrap/fiberopenapi"
-	"github.com/oaswrap/spec/openapi"
+	"github.com/oaswrap/fiberopenapi/examples/petstore/handler"
+	"github.com/oaswrap/fiberopenapi/examples/petstore/model"
+	"github.com/oaswrap/fiberopenapi/examples/petstore/repository"
 	"github.com/oaswrap/spec/option"
 )
 
 func main() {
-	app := fiber.New()
+	repo := repository.NewDummyPetRepository()
+	handler := handler.NewPetHandler(repo)
 
+	app := fiber.New()
 	r := fiberopenapi.NewRouter(app,
-		option.WithTitle("Pet Store API - OpenAPI 3.1"),
+		option.WithTitle("Petstore API"),
 		option.WithVersion("1.0.0"),
-		option.WithDescription("This is a sample Pet Store API using OpenAPI 3.1"),
-		option.WithDocsPath("/docs"),
-		option.WithServer("https://petstore3.swagger.io", option.ServerDescription("Pet Store Server")),
-		option.WithSecurity("petstore_auth", option.SecurityOAuth2(
-			openapi.OAuthFlows{
-				Implicit: &openapi.OAuthFlowsDefsImplicit{
-					AuthorizationURL: "https://petstore3.swagger.io/oauth/authorize",
-					Scopes: map[string]string{
-						"write:pets": "modify pets in your account",
-						"read:pets":  "read your pets",
-					},
-				},
-			},
-		)),
+		option.WithDescription("Sample Petstore API using Fiber and OpenAPI"),
 	)
 
-	api := r.Group("/api")
-	v3 := api.Group("/v3")
-	v3.Route("/pet", func(r fiberopenapi.Router) {
-		r.Get("/findByStatus", dummyHandler).With(
-			option.Summary("Finds Pets by status."),
-			option.Description("Multiple status values can be provided with comma separated strings"),
-			option.Request(new(FindPetsByStatusRequest)),
-			option.Response(200, new([]Pet)),
+	r.Route("/pets", func(r fiberopenapi.Router) {
+		r.Get("", handler.GetAllPets).With(
+			option.Summary("Get all pets"),
+			option.Description("Returns a list of all pets in the store"),
+			option.Response(200, new([]model.Pet)),
 		)
-		r.Get("/findByTags", dummyHandler).With(
-			option.Summary("Finds Pets by tags."),
-			option.Description("Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing."),
-			option.Request(new(FindPetsByTagsRequest)),
-			option.Response(200, new([]Pet)),
+		r.Post("", handler.CreatePet).With(
+			option.Summary("Create a new pet"),
+			option.Description("Creates a new pet in the store"),
+			option.Request(new(model.CreatePetRequest)),
+			option.Response(201, new(model.Pet)),
 		)
-		r.Get("/:petId", dummyHandler).With(
-			option.Summary("Find a pet by ID."),
-			option.Description("Returns a single pet."),
-			option.Request(new(FindPetByIdRequest)),
-			option.Response(200, new(Pet)),
+		r.Put("", handler.UpdatePet).With(
+			option.Summary("Update an existing pet"),
+			option.Description("Updates an existing pet in the store"),
+			option.Request(new(model.UpdatePetRequest)),
+			option.Response(200, new(model.Pet)),
 		)
-		r.Post("/:petId", dummyHandler).With(
-			option.Summary("Updates a pet in the store with form data."),
-			option.Description("Update a pet resource based on form data."),
-			option.Request(new(UpdatePetFormDataRequest)),
-			option.Response(200, new(Pet)),
+		r.Get("/findByStatus", handler.FindPetsByStatus).With(
+			option.Summary("Find pets by status"),
+			option.Description("Returns a list of pets based on their status"),
+			option.Request(new(model.FindPetsByStatusRequest)),
+			option.Response(200, new([]model.Pet)),
 		)
-		r.Delete("/:petId", dummyHandler).With(
-			option.Summary("Deletes a pet."),
-			option.Request(new(DeletePetRequest)),
+		r.Get("/findByTags", handler.FindPetsByTags).With(
+			option.Summary("Find pets by tags"),
+			option.Description("Returns a list of pets based on their tags"),
+			option.Request(new(model.FindPetsByTagsRequest)),
+			option.Response(200, new([]model.Pet)),
 		)
-		r.Post("/:petId/uploadImage", dummyHandler).With(
-			option.Summary("Uploads an image."),
-			option.Description("Uploads image of the pet."),
-			option.Request(new(UploadImageRequest)),
-			option.Response(200, new(ApiResponse)),
+		r.Get("/:petId", handler.GetPetByID).With(
+			option.Summary("Get pet by ID"),
+			option.Description("Returns a single pet by its ID"),
+			option.Request(new(struct {
+				ID int64 `path:"petId"`
+			})),
+			option.Response(200, new(model.Pet)),
 		)
-		r.Post("/", dummyHandler).With(
-			option.Summary("Add a new pet to the store."),
-			option.Request(new(Pet)),
-			option.Response(200, new(Pet)),
+		r.Post("/:petId", handler.UpdatePetFormData).With(
+			option.Summary("Update pet by form data"),
+			option.Description("Updates a pet using form data"),
+			option.Request(new(model.UpdatePetFormData)),
+			option.Response(200, new(model.Pet)),
 		)
-		r.Put("/", dummyHandler).With(
-			option.Summary("Update an existing pet."),
-			option.Description("Update an existing pet by Id."),
-			option.Request(new(Pet)),
-			option.Response(200, new(Pet)),
+		r.Delete("/:petId", handler.DeletePet).With(
+			option.Summary("Delete a pet"),
+			option.Description("Deletes a pet from the store"),
+			option.Request(new(struct {
+				ID int64 `path:"petId"`
+			})),
+			option.Response(204, nil),
 		)
-	}).With(option.GroupTags("pet"), option.GroupSecurity("petstore_auth", "write:pets", "read:pets"))
+	}).With(option.GroupTags("Pets"))
 
 	// Validate the OpenAPI configuration
 	if err := r.Validate(); err != nil {
 		log.Fatalf("OpenAPI validation failed: %v", err)
 	}
 
-	// Write the OpenAPI schema to a file (Optional)
 	if err := r.WriteSchemaTo("openapi.yaml"); err != nil {
 		log.Fatalf("Failed to write OpenAPI schema: %v", err)
 	}
-	if err := r.WriteSchemaTo("openapi.json"); err != nil {
-		log.Fatalf("Failed to write OpenAPI schema: %v", err)
-	}
 
-	fmt.Println("Open http://localhost:3000/docs to view the OpenAPI documentation")
+	log.Println("✅ OpenAPI schema written to: openapi.yaml")
+
+	log.Printf("🚀 OpenAPI docs available at: %s", "http://localhost:3000/docs")
 
 	app.Listen(":3000")
-}
-
-func dummyHandler(c *fiber.Ctx) error {
-	// Dummy handler for demonstration purposes
-	return c.SendString("This is a dummy handler")
 }

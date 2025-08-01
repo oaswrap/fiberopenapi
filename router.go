@@ -12,66 +12,17 @@ import (
 	"github.com/oaswrap/spec/option"
 )
 
-// Router defines the interface for an OpenAPI router.
-type Router interface {
-	// Use applies middleware to the router.
-	Use(args ...any) Router
-
-	// Get registers a GET route.
-	Get(path string, handler ...fiber.Handler) Route
-	// Head registers a HEAD route.
-	Head(path string, handler ...fiber.Handler) Route
-	// Post registers a POST route.
-	Post(path string, handler ...fiber.Handler) Route
-	// Put registers a PUT route.
-	Put(path string, handler ...fiber.Handler) Route
-	// Patch registers a PATCH route.
-	Patch(path string, handler ...fiber.Handler) Route
-	// Delete registers a DELETE route.
-	Delete(path string, handler ...fiber.Handler) Route
-	// Connect registers a CONNECT route.
-	Connect(path string, handler ...fiber.Handler) Route
-	// Options registers an OPTIONS route.
-	Options(path string, handler ...fiber.Handler) Route
-	// Trace registers a TRACE route.
-	Trace(path string, handler ...fiber.Handler) Route
-
-	// Add registers a route with the specified method and path.
-	Add(method, path string, handler ...fiber.Handler) Route
-	// Static serves static files from the specified root directory.
-	Static(prefix, root string, config ...fiber.Static) Router
-
-	// Group creates a new sub-router with the specified prefix and handlers.
-	// The prefix is prepended to all routes in the sub-router.
-	Group(prefix string, handlers ...fiber.Handler) Router
-
-	// Route creates a new sub-router with the specified prefix and applies options.
-	Route(prefix string, fn func(router Router)) Router
-
-	// With applies options to the router.
-	// This allows you to configure tags, security, and visibility for the routes.
-	With(opts ...option.GroupOption) Router
-
-	// Validate checks for errors at OpenAPI router initialization.
-	//
-	// It returns an error if there are issues with the OpenAPI configuration.
-	Validate() error
-
-	// GenerateOpenAPISchema generates the OpenAPI schema in the specified format.
-	// Supported formats are "json" and "yaml".
-	// If no format is specified, "yaml" is used by default.
-	GenerateOpenAPISchema(format ...string) ([]byte, error)
-
-	WriteSchemaTo(filePath string) error
+// NewGenerator creates a new OpenAPI generator with the specified Fiber router and options.
+//
+// It initializes the OpenAPI router and sets up the necessary routes for OpenAPI documentation.
+func NewGenerator(r fiber.Router, opts ...option.OpenAPIOption) Generator {
+	return NewRouter(r, opts...)
 }
 
-type router struct {
-	fiberRouter fiber.Router
-	specRouter  spec.Router
-	generator   *spec.Generator
-}
-
-func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
+// NewRouter creates a new OpenAPI router with the specified Fiber router and options.
+//
+// It initializes the OpenAPI generator and sets up the necessary routes for OpenAPI documentation.
+func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Generator {
 	defaultOpts := []option.OpenAPIOption{
 		option.WithTitle(constant.DefaultTitle),
 		option.WithDescription(constant.DefaultDescription),
@@ -80,28 +31,33 @@ func NewRouter(r fiber.Router, opts ...option.OpenAPIOption) Router {
 		option.WithSwaggerConfig(openapi.SwaggerConfig{}),
 	}
 	opts = append(defaultOpts, opts...)
-	generator := spec.NewGenerator(opts...)
-	cfg := generator.Config()
+	gen := spec.NewGenerator(opts...)
+	cfg := gen.Config()
 
 	rr := &router{
 		fiberRouter: r,
-		specRouter:  generator,
-		generator:   generator,
+		specRouter:  gen,
+		gen:         gen,
 	}
 
-	// If OpenAPI is disabled, return the router without any OpenAPI functionality.
-	// This allows the application to run without OpenAPI if desired.
-	if cfg.DisableOpenAPI {
+	// If docs are disabled, return the router without adding docs routes.
+	if cfg.DisableDocs {
 		return rr
 	}
 
-	handler := handler.NewOpenAPIHandler(cfg, generator)
+	handler := handler.NewOpenAPIHandler(cfg, gen)
 	openapiPath := stdpath.Join(cfg.DocsPath, constant.OpenAPIFileName)
 
 	r.Get(cfg.DocsPath, handler.Docs)
 	r.Get(openapiPath, handler.OpenAPIYaml)
 
 	return rr
+}
+
+type router struct {
+	fiberRouter fiber.Router
+	specRouter  spec.Router
+	gen         spec.Generator
 }
 
 func (r *router) Use(args ...any) Router {
@@ -194,16 +150,21 @@ func (r *router) With(opts ...option.GroupOption) Router {
 }
 
 func (r *router) Validate() error {
-	if err := r.generator.Validate(); err != nil {
-		return err
-	}
-	return nil
+	return r.gen.Validate()
 }
 
 func (r *router) GenerateOpenAPISchema(formats ...string) ([]byte, error) {
-	return r.generator.GenerateSchema(formats...)
+	return r.gen.GenerateSchema(formats...)
+}
+
+func (r *router) MarshalYAML() ([]byte, error) {
+	return r.gen.MarshalYAML()
+}
+
+func (r *router) MarshalJSON() ([]byte, error) {
+	return r.gen.MarshalJSON()
 }
 
 func (r *router) WriteSchemaTo(path string) error {
-	return r.generator.WriteSchemaTo(path)
+	return r.gen.WriteSchemaTo(path)
 }

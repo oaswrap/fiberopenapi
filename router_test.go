@@ -474,12 +474,12 @@ func TestRouter_Fiber(t *testing.T) {
 	})
 }
 
-func TestRouter_DisableOpenApi(t *testing.T) {
+func TestGenerator_DisableDocs(t *testing.T) {
 	pingHandler := func(c *fiber.Ctx) error {
 		return c.SendString("pong")
 	}
 	app := fiber.New()
-	r := fiberopenapi.NewRouter(app, option.WithDisableOpenAPI())
+	r := fiberopenapi.NewRouter(app, option.WithDisableDocs())
 	r.Get("/ping", pingHandler).With(
 		option.Summary("Ping Endpoint"),
 		option.Description("Endpoint to test ping functionality"),
@@ -508,9 +508,9 @@ func TestRouter_DisableOpenApi(t *testing.T) {
 	_ = resOpenAPI.Body.Close()
 }
 
-func TestRouterWriteSchemaTo(t *testing.T) {
+func TestGenerator_WriteSchemaTo(t *testing.T) {
 	app := fiber.New()
-	r := fiberopenapi.NewRouter(app,
+	r := fiberopenapi.NewGenerator(app,
 		option.WithTitle("Test API Write Schema"),
 		option.WithVersion("1.0.0"),
 		option.WithDescription("This is a test API for writing OpenAPI schema to file"),
@@ -537,4 +537,46 @@ func TestRouterWriteSchemaTo(t *testing.T) {
 	schema, err := os.ReadFile(tempFile.Name())
 	require.NoError(t, err, "failed to read OpenAPI schema from file")
 	assert.NotEmpty(t, schema, "expected non-empty OpenAPI schema")
+}
+
+func TestGenerator_MarshallYAML(t *testing.T) {
+	app := fiber.New()
+	r := fiberopenapi.NewRouter(app,
+		option.WithTitle("Test API Marshall YAML"),
+		option.WithVersion("1.0.0"),
+		option.WithDescription("This is a test API for marshalling OpenAPI schema to YAML"),
+	)
+
+	r.Get("/ping", PingHandler).With(
+		option.Summary("Ping Endpoint"),
+		option.Description("Endpoint to test ping functionality"),
+	)
+
+	err := r.Validate()
+	require.NoError(t, err, "failed to validate OpenAPI configuration")
+
+	yamlData, err := r.MarshalYAML()
+	require.NoError(t, err, "failed to marshal OpenAPI schema to YAML")
+	assert.NotEmpty(t, yamlData, "expected non-empty YAML data")
+}
+
+func TestGeneratorMarshalJSON(t *testing.T) {
+	app := fiber.New()
+	r := fiberopenapi.NewRouter(app,
+		option.WithTitle("Test API Marshall JSON"),
+		option.WithVersion("1.0.0"),
+		option.WithDescription("This is a test API for marshalling OpenAPI schema to JSON"),
+	)
+
+	r.Get("/ping", PingHandler).With(
+		option.Summary("Ping Endpoint"),
+		option.Description("Endpoint to test ping functionality"),
+	)
+
+	err := r.Validate()
+	require.NoError(t, err, "failed to validate OpenAPI configuration")
+
+	jsonData, err := r.MarshalJSON()
+	require.NoError(t, err, "failed to marshal OpenAPI schema to JSON")
+	assert.NotEmpty(t, jsonData, "expected non-empty JSON data")
 }
