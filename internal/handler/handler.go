@@ -14,23 +14,23 @@ import (
 )
 
 type OpenAPIHandler struct {
-	cfg       *openapi.Config
-	generator *spec.Generator
-	once      sync.Once
-	err       error
-	schema    []byte
+	cfg    *openapi.Config
+	gen    spec.Generator
+	once   sync.Once
+	err    error
+	schema []byte
 }
 
-func NewOpenAPIHandler(cfg *openapi.Config, generator *spec.Generator) *OpenAPIHandler {
+func NewOpenAPIHandler(cfg *openapi.Config, gen spec.Generator) *OpenAPIHandler {
 	return &OpenAPIHandler{
-		cfg:       cfg,
-		generator: generator,
+		cfg: cfg,
+		gen: gen,
 	}
 }
 
 func (h *OpenAPIHandler) OpenAPIYaml(c *fiber.Ctx) error {
 	h.once.Do(func() {
-		schema, err := h.generator.GenerateSchema("yaml")
+		schema, err := h.gen.MarshalYAML()
 		if err != nil {
 			h.err = err
 			return

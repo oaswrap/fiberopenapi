@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/oaswrap/fiberopenapi/internal/handler"
 	"github.com/oaswrap/spec"
+	"github.com/oaswrap/spec/openapi"
 	"github.com/oaswrap/spec/option"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,7 +62,7 @@ func TestOpenAPIHandler_OpenAPIYaml(t *testing.T) {
 }
 
 func TestOpenAPIHandler_Docs(t *testing.T) {
-	generator := spec.NewGenerator()
+	generator := spec.NewGenerator(option.WithSwaggerConfig(openapi.SwaggerConfig{}))
 	cfg := generator.Config()
 
 	h := handler.NewOpenAPIHandler(cfg, generator)
@@ -78,6 +79,7 @@ func TestOpenAPIHandler_Docs(t *testing.T) {
 
 	generator = spec.NewGenerator(
 		option.WithBaseURL("http://localhost:3000"),
+		option.WithSwaggerConfig(openapi.SwaggerConfig{}),
 	)
 	cfg = generator.Config()
 	h = handler.NewOpenAPIHandler(cfg, generator)

@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  description: Sample Fiber + OpenAPI
+  title: Example API
+  version: 1.0.0
+paths:
+  /api/hello:
+    post:
+      description: Say Hello
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HelloRequest'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelloResponse'
+          description: OK
+      summary: Say Hello
+components:
+  schemas:
+    HelloRequest:
+      properties:
+        name:
+          example: World
+          type: string
+      type: object
+    HelloResponse:
+      properties:
+        message:
+          example: Hello, World
+          type: string
+      type: object

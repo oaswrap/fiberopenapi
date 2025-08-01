@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/oaswrap/spec v0.1.3
+	github.com/oaswrap/spec v0.1.4
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggest/swgui v1.8.4
 )

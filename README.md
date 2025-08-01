@@ -1,4 +1,3 @@
-
 # fiberopenapi
 
 [![CI](https://github.com/oaswrap/fiberopenapi/actions/workflows/ci.yml/badge.svg)](https://github.com/oaswrap/fiberopenapi/actions/workflows/ci.yml)
@@ -59,10 +58,13 @@ func main() {
 		option.Response(200, new(HelloResponse)),
 	)
 
-	// Validate and run
-	if err := r.Validate(); err != nil {
+	// Write spec file (optional)
+	if err := r.WriteSchemaTo("openapi.yaml"); err != nil {
 		log.Fatal(err)
 	}
+	log.Println("✅ OpenAPI schema written to: openapi.yaml")
+
+	log.Printf("🚀 OpenAPI docs available at: %s", "http://localhost:3000/docs")
 
 	app.Listen(":3000")
 }

@@ -27,10 +27,13 @@ func main() {
 		option.Response(200, new(HelloResponse)),
 	)
 
-	// Validate and run
-	if err := r.Validate(); err != nil {
-		log.Fatal(err)
+	// Write schema to file (optional)
+	if err := r.WriteSchemaTo("openapi.yaml"); err != nil {
+		log.Fatalf("Failed to write OpenAPI schema: %v", err)
 	}
+	log.Println("✅ OpenAPI schema written to: openapi.yaml")
+
+	log.Printf("🚀 OpenAPI docs available at: %s", "http://localhost:3000/docs")
 
 	app.Listen(":3000")
 }
